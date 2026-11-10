@@ -1,0 +1,29 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'es.multirecorte.app'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'es.multirecorte.app'
+        minSdk 29
+        targetSdk 35
+        versionCode 1
+        versionName '1.0.0'
+    }
+
+    sourceSets {
+        main.assets.srcDirs += "$projectDir/src/main/assets"
+    }
+}
+
+def webRoot = rootProject.projectDir.parentFile
+tasks.register('syncWebAssets', Sync) {
+    from(webRoot) {
+        include 'index.html', 'styles.css', 'app.js', 'manifest.webmanifest', 'sw.js', 'icon.svg'
+    }
+    into "$projectDir/src/main/assets/www"
+}
+tasks.named('preBuild').configure { dependsOn tasks.named('syncWebAssets') }

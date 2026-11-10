@@ -1,0 +1,15 @@
+{
+  "name": "Multirecorte — piezas para mosaico",
+  "short_name": "Multirecorte",
+  "description": "Divide fotografías en piezas para mosaicos, selecciona recortes y expórtalos juntos.",
+  "lang": "es",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f5f3ee",
+  "theme_color": "#f5f3ee",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

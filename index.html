@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f5f3ee">
+  <meta name="description" content="Divide una foto en piezas para mosaicos, selecciona varios recortes y expórtalos juntos.">
+  <title>Multirecorte — piezas para mosaico</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="Multirecorte, inicio">
+        <span class="brand-mark"><i></i><i></i><i></i><i></i></span>
+        <span><b>mosaico</b><small>MULTIRECORTE</small></span>
+      </a>
+      <div class="topbar-right">
+        <span class="privacy"><span class="privacy-dot"></span> Tus fotos se quedan en tu dispositivo</span>
+        <button id="installBtn" class="install-btn" hidden>Instalar app</button>
+        <button id="helpBtn" class="help-btn" aria-label="Ayuda">?</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="panel controls-panel">
+        <div class="panel-heading"><div><span class="eyebrow">TU PROYECTO</span><h1>Prepara tus piezas</h1></div><span class="step-chip">01 — 03</span></div>
+        <label class="upload-zone" id="uploadZone" for="imageInput">
+          <input id="imageInput" type="file" accept="image/*" hidden>
+          <span class="upload-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7 9m5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg></span>
+          <strong id="uploadTitle">Elige una fotografía</strong>
+          <span id="uploadHint">o arrástrala aquí · JPG, PNG, WEBP</span>
+          <span class="upload-link">Seleccionar imagen <span>↗</span></span>
+        </label>
+        <div id="imageMeta" class="image-meta" hidden><span class="meta-thumb" id="metaThumb"></span><span class="meta-text"><b id="metaName"></b><small id="metaDimensions"></small></span><button id="removeImage" class="icon-button" aria-label="Quitar imagen">×</button></div>
+
+        <section class="control-section">
+          <div class="section-title"><span class="section-number">A</span><div><h2>Plantilla</h2><p>Un punto de partida para tu mosaico</p></div></div>
+          <div class="template-list" id="templateList">
+            <button class="template-card active" data-cols="3" data-rows="3"><span class="template-preview grid-3"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span><b>Clásico</b><small>3 × 3</small></span><span class="template-check">✓</span></button>
+            <button class="template-card" data-cols="2" data-rows="2"><span class="template-preview grid-2"><i></i><i></i><i></i><i></i></span><span><b>Cuadrantes</b><small>2 × 2</small></span><span class="template-check">✓</span></button>
+            <button class="template-card" data-cols="4" data-rows="4"><span class="template-preview grid-4"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span><b>Detalle</b><small>4 × 4</small></span><span class="template-check">✓</span></button>
+            <button class="template-card" data-cols="4" data-rows="3"><span class="template-preview grid-43"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span><b>Panorámico</b><small>4 × 3</small></span><span class="template-check">✓</span></button>
+          </div>
+          <div id="savedTemplates" class="saved-templates"></div>
+        </section>
+
+        <section class="control-section grid-section">
+          <div class="section-title"><span class="section-number">B</span><div><h2>Ajusta la cuadrícula</h2><p>De 1 a 12 piezas por lado</p></div></div>
+          <div class="number-fields">
+            <label>Columnas<div class="stepper"><button data-step="cols" data-delta="-1" aria-label="Menos columnas">−</button><input id="colsInput" type="number" min="1" max="12" value="3"><button data-step="cols" data-delta="1" aria-label="Más columnas">+</button></div></label>
+            <span class="multiply">×</span>
+            <label>Filas<div class="stepper"><button data-step="rows" data-delta="-1" aria-label="Menos filas">−</button><input id="rowsInput" type="number" min="1" max="12" value="3"><button data-step="rows" data-delta="1" aria-label="Más filas">+</button></div></label>
+          </div>
+          <div class="grid-summary"><span class="summary-dot"></span><span id="pieceSummary">9 piezas en total</span></div>
+          <div class="save-template-row"><input id="templateName" type="text" maxlength="24" placeholder="Nombre de plantilla"><button id="saveTemplate" class="save-template" title="Guardar plantilla">＋ Guardar</button></div>
+        </section>
+
+        <section class="selection-section">
+          <div class="selection-title"><div><span class="eyebrow">SELECCIÓN</span><strong id="selectionCount">0 seleccionadas</strong></div><button id="selectAll" class="text-button">Seleccionar todas</button></div>
+          <button id="exportBtn" class="export-button" disabled><span class="export-icon">↓</span><span><b>Exportar piezas</b><small id="exportHint">Selecciona una fotografía primero</small></span><span class="export-arrow">↗</span></button>
+          <p class="export-note">Se guardan juntas en un ZIP, listas para imprimir.</p>
+        </section>
+      </aside>
+
+      <section class="workspace">
+        <div class="workspace-heading"><div><span class="eyebrow">VISTA PREVIA</span><h2>Tu mosaico</h2></div><div class="workspace-actions"><button id="undoSelection" class="subtle-button" title="Restablecer selección">↺ <span>Restablecer</span></button><span class="workspace-divider"></span><button id="zoomBtn" class="zoom-button" aria-label="Ajustar vista">⌗</button></div></div>
+        <div class="canvas-stage" id="canvasStage">
+          <div id="emptyState" class="empty-state"><div class="empty-art"><span class="sun"></span><span class="hill hill-back"></span><span class="hill hill-front"></span><span class="frame-grid"><i></i><i></i><i></i><i></i></span></div><h3>Todo mosaico empieza con una foto</h3><p>Sube una imagen y toca las piezas<br>que quieras recortar.</p><button id="emptyUpload" class="empty-upload">＋ Añadir fotografía</button></div>
+          <canvas id="previewCanvas" aria-label="Vista previa de la imagen dividida en piezas" hidden></canvas>
+          <div id="canvasHint" class="canvas-hint" hidden><span class="hint-spark">✳</span> Toca las piezas para incluirlas o quitarlas</div>
+          <div class="canvas-corner corner-tl"></div><div class="canvas-corner corner-br"></div>
+        </div>
+        <div class="workspace-footer"><div class="legend"><span class="legend-item"><i class="legend-selected"></i> Se incluirá</span><span class="legend-item"><i class="legend-unselected"></i> Excluida</span></div><span id="fileSizeLabel" class="file-size-label">Sin imagen cargada</span></div>
+        <div class="below-tools"><div class="tip-card"><span class="tip-icon">✦</span><div><b>Un consejo para tu mosaico</b><p>Haz clic en cualquier pieza para seleccionar varios recortes a la vez. Las piezas excluidas no se incluirán en el ZIP.</p></div></div><div class="log-actions"><div><b>¿Algo no funciona?</b><small>Guarda un registro para ayudarnos a encontrar el error.</small></div><div class="log-buttons"><button id="printLogBtn" class="log-button">▤ <span>Imprimir log</span></button><button id="saveLogBtn" class="log-save-button" title="Guardar log en Descargas">↓</button></div></div></div>
+      </section>
+    </main>
+    <footer><span>Hecho para crear, cortar y compartir.</span><span>Multirecorte <i>·</i> Privado por diseño</span></footer>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <dialog id="helpDialog"><div class="dialog-content"><button id="closeHelp" class="dialog-close" aria-label="Cerrar">×</button><span class="eyebrow">GUÍA RÁPIDA</span><h2>De una foto a muchas piezas</h2><ol><li><b>Elige una foto.</b> Se procesa en tu dispositivo; no se sube a internet.</li><li><b>Escoge una plantilla</b> o ajusta filas y columnas a tu medida.</li><li><b>Toca las piezas</b> para seleccionar varios recortes. Naranja significa que se incluirán.</li><li><b>Exporta el ZIP.</b> En Android se guarda en Descargas. El botón «Imprimir log» abre el registro de diagnóstico.</li></ol><button id="gotIt" class="primary-small">Entendido</button></div></dialog>
+  <script src="app.js"></script>
+</body>
+</html>
