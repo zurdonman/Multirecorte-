@@ -2,8 +2,22 @@ name: Construir APK Android
 
 on:
   workflow_dispatch:
+    inputs:
+      publish_release:
+        description: 'Publicar también un Release de GitHub con la APK'
+        type: boolean
+        required: false
+        default: false
+      release_tag:
+        description: 'Etiqueta del Release (por ejemplo v1.0.0)'
+        type: string
+        required: false
+        default: 'v1.0.0'
   push:
     branches: ['**']
+
+permissions:
+  contents: write
 
 jobs:
   build-apk:
@@ -33,10 +47,21 @@ jobs:
           gradle-version: '8.9'
           arguments: --no-daemon :app:assembleDebug
           build-root-directory: android
-      - name: Publicar APK como artefacto
+      - name: Publicar APK como artefacto de la ejecución
         uses: actions/upload-artifact@v4
         with:
           name: Multirecorte-debug-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
+      - name: Publicar APK en Releases del repositorio
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_release }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          gh release create "$RELEASE_TAG" android/app/build/outputs/apk/debug/app-debug.apk \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Multirecorte $RELEASE_TAG" \
+            --notes "APK Android de Multirecorte. Descarga app-debug.apk e instálala en Android 10 o posterior. Esta compilación es de depuración y no está firmada para Play Store. Los logs de diagnóstico se guardan en Descargas/Multirecorte."
