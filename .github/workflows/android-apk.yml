@@ -17,9 +17,16 @@ jobs:
           distribution: temurin
           java-version: '17'
       - name: Preparar Android SDK
-        uses: android-actions/setup-android@v3
-      - name: Instalar Android API 35
-        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+        shell: bash
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager 2>/dev/null | sort -V | tail -n 1)"
+          if [[ -z "$SDKMANAGER" ]]; then
+            echo "No se encontró sdkmanager dentro de $SDK_ROOT"
+            exit 1
+          fi
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" 'platforms;android-35' 'build-tools;35.0.0'
       - name: Construir APK de depuración
         uses: gradle/gradle-build-action@v3
         with:
