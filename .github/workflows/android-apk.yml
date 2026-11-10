@@ -9,10 +9,10 @@ on:
         required: false
         default: false
       release_tag:
-        description: 'Etiqueta del Release (por ejemplo v1.0.0)'
+        description: 'Etiqueta del Release (por ejemplo v1.0.1)'
         type: string
         required: false
-        default: 'v1.0.0'
+        default: 'v1.0.1'
   push:
     branches: ['**']
 
@@ -55,11 +55,20 @@ jobs:
           if-no-files-found: error
           retention-days: 30
       - name: Publicar APK en Releases del repositorio
-        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.publish_release) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[publish-release]')) }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.publish_release) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[publish-release:')) }}
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.release_tag || 'v1.0.0' }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
+          if [[ "$EVENT_NAME" == "push" ]]; then
+            RELEASE_TAG="$(printf '%s\n' "$COMMIT_MESSAGE" | sed -nE 's/.*\[publish-release:([^]]+)\].*/\1/p' | head -n 1)"
+          fi
+          if [[ -z "$RELEASE_TAG" ]]; then
+            echo "Falta la etiqueta del Release"
+            exit 1
+          fi
           gh release create "$RELEASE_TAG" android/app/build/outputs/apk/debug/app-debug.apk \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \

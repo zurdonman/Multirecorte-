@@ -66,11 +66,11 @@
       </aside>
 
       <section class="workspace">
-        <div class="workspace-heading"><div><span class="eyebrow">VISTA PREVIA</span><h2>Tu mosaico</h2></div><div class="workspace-actions"><button id="undoSelection" class="subtle-button" title="Restablecer selección">↺ <span>Restablecer</span></button><span class="workspace-divider"></span><button id="zoomBtn" class="zoom-button" aria-label="Ajustar vista">⌗</button></div></div>
+        <div class="workspace-heading"><div><span class="eyebrow">VISTA PREVIA</span><h2>Tu mosaico</h2></div><div class="workspace-actions"><button id="manualGridBtn" class="subtle-button manual-toggle" title="Activa el modo para arrastrar los divisores sobre la imagen" aria-pressed="false">⌖ <span>Ajustar líneas</span></button><button id="equalGridBtn" class="subtle-button equal-button" title="Volver a espaciar todas las líneas por igual" hidden>↔ <span>Igualar</span></button><span class="workspace-divider"></span><button id="undoSelection" class="subtle-button" title="Restablecer selección">↺ <span>Restablecer</span></button><button id="zoomBtn" class="zoom-button" aria-label="Ajustar vista">⌗</button></div></div>
         <div class="canvas-stage" id="canvasStage">
           <div id="emptyState" class="empty-state"><div class="empty-art"><span class="sun"></span><span class="hill hill-back"></span><span class="hill hill-front"></span><span class="frame-grid"><i></i><i></i><i></i><i></i></span></div><h3>Todo mosaico empieza con una foto</h3><p>Sube una imagen y toca las piezas<br>que quieras recortar.</p><button id="emptyUpload" class="empty-upload">＋ Añadir fotografía</button></div>
           <canvas id="previewCanvas" aria-label="Vista previa de la imagen dividida en piezas" hidden></canvas>
-          <div id="canvasHint" class="canvas-hint" hidden><span class="hint-spark">✳</span> Toca las piezas para incluirlas o quitarlas</div>
+          <div id="canvasHint" class="canvas-hint" hidden><span class="hint-spark">✳</span> <span id="canvasHintText">Toca las piezas para incluirlas o quitarlas</span></div>
           <div class="canvas-corner corner-tl"></div><div class="canvas-corner corner-br"></div>
         </div>
         <div class="workspace-footer"><div class="legend"><span class="legend-item"><i class="legend-selected"></i> Se incluirá</span><span class="legend-item"><i class="legend-unselected"></i> Excluida</span></div><span id="fileSizeLabel" class="file-size-label">Sin imagen cargada</span></div>
@@ -80,7 +80,7 @@
     <footer><span>Hecho para crear, cortar y compartir.</span><span>Multirecorte <i>·</i> Privado por diseño</span></footer>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <dialog id="helpDialog"><div class="dialog-content"><button id="closeHelp" class="dialog-close" aria-label="Cerrar">×</button><span class="eyebrow">GUÍA RÁPIDA</span><h2>De una foto a muchas piezas</h2><ol><li><b>Elige una foto.</b> Se procesa en tu dispositivo; no se sube a internet.</li><li><b>Escoge una plantilla</b> o ajusta filas y columnas a tu medida.</li><li><b>Toca las piezas</b> para seleccionar varios recortes. Naranja significa que se incluirán.</li><li><b>Exporta el ZIP.</b> En Android se guarda en Descargas. El botón «Imprimir log» abre el registro de diagnóstico.</li></ol><button id="gotIt" class="primary-small">Entendido</button></div></dialog>
+  <dialog id="helpDialog"><div class="dialog-content"><button id="closeHelp" class="dialog-close" aria-label="Cerrar">×</button><span class="eyebrow">GUÍA RÁPIDA</span><h2>De una foto a muchas piezas</h2><ol><li><b>Elige una foto.</b> Se procesa en tu dispositivo; no se sube a internet.</li><li><b>Escoge una plantilla</b> o ajusta filas y columnas a tu medida.</li><li><b>Ajusta las líneas</b> si lo necesitas: activa «Ajustar líneas» y arrastra los divisores para adaptarlos a los motivos de la foto. Puedes guardar ese diseño como plantilla.</li><li><b>Toca las piezas</b> para seleccionar varios recortes. Naranja significa que se incluirán.</li><li><b>Exporta el ZIP.</b> En Android se guarda en Descargas. El botón «Imprimir log» abre el registro de diagnóstico.</li></ol><button id="gotIt" class="primary-small">Entendido</button></div></dialog>
   <script src="app.js"></script>
 </body>
 </html>

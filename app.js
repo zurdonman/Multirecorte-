@@ -3,8 +3,11 @@
   const $ = (id) => document.getElementById(id);
   const canvas = $('previewCanvas');
   const ctx = canvas.getContext('2d');
-  const state = { image: null, imageName: '', cols: 3, rows: 3, selected: new Set(), log: [], toastTimer: null, installPrompt: null };
+  const state = { image: null, imageName: '', cols: 3, rows: 3, selected: new Set(), xCuts: [0, 1 / 3, 2 / 3, 1], yCuts: [0, 1 / 3, 2 / 3, 1], manualEdit: false, dragGuide: null, suppressNextClick: false, log: [], toastTimer: null, installPrompt: null };
   const MAX_SIDE = 2400;
+  const MIN_CELL_FRACTION = 0.025;
+  function evenCuts(count) { return Array.from({ length: count + 1 }, (_, i) => i / count); }
+  function validCuts(cuts, count) { return Array.isArray(cuts) && cuts.length === count + 1 && cuts[0] === 0 && cuts[cuts.length - 1] === 1 && cuts.every((v, i) => Number.isFinite(v) && (i === 0 || v - cuts[i - 1] >= MIN_CELL_FRACTION - 1e-6)); }
 
   function logEvent(message, details = {}) {
     const entry = { time: new Date().toISOString(), event: message, ...details };
@@ -19,6 +22,16 @@
   }
   function getAndroidBridge() { return window.AndroidBridge || null; }
   function safeFilename(name) { return String(name || 'foto').replace(/\.[^.]+$/, '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 50) || 'foto'; }
+  function updateManualUI() {
+    const button = $('manualGridBtn');
+    button.disabled = !state.image;
+    button.classList.toggle('active', state.manualEdit);
+    button.setAttribute('aria-pressed', String(state.manualEdit));
+    button.querySelector('span').textContent = state.manualEdit ? 'Arrastra divisores' : 'Ajustar líneas';
+    $('equalGridBtn').hidden = !state.manualEdit;
+    canvas.classList.toggle('manual-editing', state.manualEdit);
+    $('canvasHintText').textContent = state.manualEdit ? 'Arrastra las líneas sobre la foto para ajustar cada pieza' : 'Toca las piezas para incluirlas o quitarlas';
+  }
   function updateSelectionUI() {
     const total = state.cols * state.rows, selected = state.selected.size;
     $('selectionCount').textContent = `${selected} ${selected === 1 ? 'seleccionada' : 'seleccionadas'}`;
@@ -26,6 +39,7 @@
     $('selectAll').textContent = selected === total ? 'Quitar todas' : 'Seleccionar todas';
     $('exportBtn').disabled = !state.image || selected === 0;
     $('exportHint').textContent = !state.image ? 'Selecciona una fotografía primero' : selected === 0 ? 'Selecciona al menos una pieza' : `${selected} ${selected === 1 ? 'pieza lista' : 'piezas listas'} · ZIP`;
+    updateManualUI();
     drawPreview();
   }
   function drawPreview() {
@@ -36,33 +50,53 @@
     canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-    const cw = canvas.width / state.cols, ch = canvas.height / state.rows;
+    const cw = canvas.width, ch = canvas.height;
     for (let r = 0; r < state.rows; r++) for (let c = 0; c < state.cols; c++) {
       const index = r * state.cols + c;
-      const x = c * cw, y = r * ch;
+      const x = state.xCuts[c] * cw, y = state.yCuts[r] * ch;
+      const cellW = (state.xCuts[c + 1] - state.xCuts[c]) * cw, cellH = (state.yCuts[r + 1] - state.yCuts[r]) * ch;
       if (state.selected.has(index)) {
-        ctx.fillStyle = 'rgba(228, 112, 57, .17)'; ctx.fillRect(x, y, cw, ch);
-        ctx.strokeStyle = '#fffaf4'; ctx.lineWidth = Math.max(2, Math.min(canvas.width, canvas.height) / 260); ctx.strokeRect(x, y, cw, ch);
-        if (cw > 38 && ch > 38) {
-          const radius = Math.max(8, Math.min(cw, ch) * .055);
-          ctx.beginPath(); ctx.arc(x + cw - radius * 1.5, y + radius * 1.5, radius, 0, Math.PI * 2); ctx.fillStyle = '#e77742'; ctx.fill();
-          ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x + cw - radius * 1.95, y + radius * 1.5); ctx.lineTo(x + cw - radius * 1.62, y + radius * 1.82); ctx.lineTo(x + cw - radius * 1.02, y + radius * 1.15); ctx.stroke();
+        ctx.fillStyle = 'rgba(228, 112, 57, .17)'; ctx.fillRect(x, y, cellW, cellH);
+        if (cellW > 34 && cellH > 34) {
+          const radius = Math.max(7, Math.min(cellW, cellH) * .055);
+          ctx.beginPath(); ctx.arc(x + cellW - radius * 1.5, y + radius * 1.5, radius, 0, Math.PI * 2); ctx.fillStyle = '#e77742'; ctx.fill();
+          ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x + cellW - radius * 1.95, y + radius * 1.5); ctx.lineTo(x + cellW - radius * 1.62, y + radius * 1.82); ctx.lineTo(x + cellW - radius * 1.02, y + radius * 1.15); ctx.stroke();
         }
       } else {
-        ctx.fillStyle = 'rgba(25, 30, 24, .40)'; ctx.fillRect(x, y, cw, ch);
-        ctx.strokeStyle = 'rgba(255,255,255,.72)'; ctx.lineWidth = Math.max(1.5, Math.min(canvas.width, canvas.height) / 320); ctx.strokeRect(x, y, cw, ch);
+        ctx.fillStyle = 'rgba(25, 30, 24, .40)'; ctx.fillRect(x, y, cellW, cellH);
       }
+    }
+    ctx.save(); ctx.lineCap = 'round'; ctx.shadowColor = 'rgba(22,25,19,.38)'; ctx.shadowBlur = Math.max(2, cw / 500);
+    ctx.strokeStyle = state.manualEdit ? '#fff7ed' : 'rgba(255,255,255,.92)'; ctx.lineWidth = Math.max(state.manualEdit ? 4 : 2, Math.min(cw, ch) / 300);
+    for (let c = 1; c < state.cols; c++) { const x = state.xCuts[c] * cw; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, ch); ctx.stroke(); }
+    for (let r = 1; r < state.rows; r++) { const y = state.yCuts[r] * ch; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(cw, y); ctx.stroke(); }
+    ctx.restore();
+    if (state.manualEdit) {
+      const radius = Math.max(7, Math.min(cw, ch) / 110);
+      for (let c = 1; c < state.cols; c++) { ctx.beginPath(); ctx.arc(state.xCuts[c] * cw, ch / 2, radius, 0, Math.PI * 2); ctx.fillStyle = '#fff7ed'; ctx.fill(); ctx.strokeStyle = '#e77742'; ctx.lineWidth = Math.max(2, radius / 4); ctx.stroke(); }
+      for (let r = 1; r < state.rows; r++) { ctx.beginPath(); ctx.arc(cw / 2, state.yCuts[r] * ch, radius, 0, Math.PI * 2); ctx.fillStyle = '#fff7ed'; ctx.fill(); ctx.strokeStyle = '#e77742'; ctx.lineWidth = Math.max(2, radius / 4); ctx.stroke(); }
     }
   }
   function setGrid(cols, rows, source = 'manual') {
     cols = Math.max(1, Math.min(12, Math.round(Number(cols) || 1)));
     rows = Math.max(1, Math.min(12, Math.round(Number(rows) || 1)));
     state.cols = cols; state.rows = rows;
+    state.xCuts = evenCuts(cols); state.yCuts = evenCuts(rows);
     $('colsInput').value = cols; $('rowsInput').value = rows;
     state.selected = new Set(Array.from({ length: cols * rows }, (_, i) => i));
     document.querySelectorAll('.template-card').forEach(card => card.classList.toggle('active', Number(card.dataset.cols) === cols && Number(card.dataset.rows) === rows));
     logEvent('Cuadrícula actualizada', { columnas: cols, filas: rows, piezas: cols * rows, origen: source });
     updateSelectionUI();
+  }
+  function applySavedCuts(tpl) {
+    if (validCuts(tpl.xCuts, state.cols)) state.xCuts = [...tpl.xCuts];
+    if (validCuts(tpl.yCuts, state.rows)) state.yCuts = [...tpl.yCuts];
+    updateSelectionUI();
+  }
+  function resetCuts() {
+    state.xCuts = evenCuts(state.cols); state.yCuts = evenCuts(state.rows);
+    logEvent('Líneas de recorte igualadas', { columnas: state.cols, filas: state.rows });
+    updateSelectionUI(); showToast('Líneas distribuidas por igual.');
   }
   function displayImage(file) {
     if (!file || !file.type.startsWith('image/')) { showToast('Elige un archivo de imagen válido.'); logEvent('Archivo rechazado', { tipo: file?.type || 'desconocido' }); return; }
@@ -120,8 +154,8 @@
       const indices = [...state.selected].sort((a, b) => a - b);
       for (let n = 0; n < indices.length; n++) {
         const index = indices[n], row = Math.floor(index / state.cols), col = index % state.cols;
-        const x = Math.round(col * image.naturalWidth / state.cols), y = Math.round(row * image.naturalHeight / state.rows);
-        const right = Math.round((col + 1) * image.naturalWidth / state.cols), bottom = Math.round((row + 1) * image.naturalHeight / state.rows);
+        const x = Math.round(state.xCuts[col] * image.naturalWidth), y = Math.round(state.yCuts[row] * image.naturalHeight);
+        const right = Math.round(state.xCuts[col + 1] * image.naturalWidth), bottom = Math.round(state.yCuts[row + 1] * image.naturalHeight);
         const piece = document.createElement('canvas'); piece.width = right - x; piece.height = bottom - y;
         piece.getContext('2d').drawImage(image, x, y, piece.width, piece.height, 0, 0, piece.width, piece.height);
         const blob = await canvasBlob(piece); files.push({ name: `${base}_pieza_${String(row + 1).padStart(2, '0')}_${String(col + 1).padStart(2, '0')}.png`, data: new Uint8Array(await blob.arrayBuffer()) });
@@ -133,7 +167,7 @@
     finally { button.disabled = false; updateSelectionUI(); }
   }
   function getLogText() {
-    const header = [`MULTIRECORTE · REGISTRO DE DIAGNÓSTICO`, `Generado: ${new Date().toISOString()}`, `Versión: 1.0.0`, `Plataforma: ${navigator.userAgent}`, `Idioma: ${navigator.language}`, `Online: ${navigator.onLine ? 'sí' : 'no'}`, `Registros: ${state.log.length}`, '─'.repeat(72)];
+    const header = [`MULTIRECORTE · REGISTRO DE DIAGNÓSTICO`, `Generado: ${new Date().toISOString()}`, `Versión: 1.0.1`, `Plataforma: ${navigator.userAgent}`, `Idioma: ${navigator.language}`, `Online: ${navigator.onLine ? 'sí' : 'no'}`, `Registros: ${state.log.length}`, '─'.repeat(72)];
     return [...header, ...state.log.map(e => `${e.time}  ${e.event}${Object.keys(e).filter(k => !['time','event'].includes(k)).length ? '  ' + JSON.stringify(Object.fromEntries(Object.entries(e).filter(([k]) => !['time','event'].includes(k)))) : ''}`)].join('\n');
   }
   async function saveLog() {
@@ -152,7 +186,7 @@
   function persistTemplates() { try { return JSON.parse(localStorage.getItem('multirecorte-templates') || '[]'); } catch (_) { return []; } }
   function renderSavedTemplates() {
     const box = $('savedTemplates'); box.replaceChildren();
-    persistTemplates().forEach((tpl, index) => { const b = document.createElement('button'); b.className = 'saved-chip'; b.textContent = `${tpl.name} · ${tpl.cols}×${tpl.rows}  ×`; b.title = 'Toca para aplicar; mantén pulsado para eliminar'; b.addEventListener('click', () => { if (b.dataset.delete === 'yes') return; setGrid(tpl.cols, tpl.rows, 'plantilla guardada'); showToast(`Plantilla «${tpl.name}» aplicada.`); }); b.addEventListener('contextmenu', e => { e.preventDefault(); removeTemplate(index); }); let timer; b.addEventListener('touchstart', () => { timer = setTimeout(() => { b.dataset.delete = 'yes'; removeTemplate(index); }, 700); }, { passive: true }); b.addEventListener('touchend', () => clearTimeout(timer)); box.appendChild(b); });
+    persistTemplates().forEach((tpl, index) => { const b = document.createElement('button'); b.className = 'saved-chip'; b.textContent = `${tpl.name} · ${tpl.cols}×${tpl.rows}  ×`; b.title = 'Toca para aplicar; mantén pulsado para eliminar'; b.addEventListener('click', () => { if (b.dataset.delete === 'yes') return; setGrid(tpl.cols, tpl.rows, 'plantilla guardada'); applySavedCuts(tpl); showToast(`Plantilla «${tpl.name}» aplicada.`); }); b.addEventListener('contextmenu', e => { e.preventDefault(); removeTemplate(index); }); let timer; b.addEventListener('touchstart', () => { timer = setTimeout(() => { b.dataset.delete = 'yes'; removeTemplate(index); }, 700); }, { passive: true }); b.addEventListener('touchend', () => clearTimeout(timer)); box.appendChild(b); });
   }
   function removeTemplate(index) { const all = persistTemplates(); all.splice(index, 1); localStorage.setItem('multirecorte-templates', JSON.stringify(all)); renderSavedTemplates(); showToast('Plantilla eliminada.'); }
 
@@ -165,10 +199,53 @@
   document.querySelectorAll('.template-card').forEach(card => card.addEventListener('click', () => setGrid(card.dataset.cols, card.dataset.rows, 'plantilla predefinida')));
   $('colsInput').addEventListener('change', () => setGrid($('colsInput').value, state.rows)); $('rowsInput').addEventListener('change', () => setGrid(state.cols, $('rowsInput').value));
   document.querySelectorAll('[data-step]').forEach(btn => btn.addEventListener('click', () => { const key = btn.dataset.step, input = $(key === 'cols' ? 'colsInput' : 'rowsInput'); setGrid(key === 'cols' ? Number(input.value) + Number(btn.dataset.delta) : state.cols, key === 'rows' ? Number(input.value) + Number(btn.dataset.delta) : state.rows); }));
-  $('saveTemplate').addEventListener('click', () => { const name = $('templateName').value.trim(); if (!name) { showToast('Escribe un nombre para la plantilla.'); $('templateName').focus(); return; } const all = persistTemplates(); if (all.length >= 12) { showToast('Puedes guardar hasta 12 plantillas.'); return; } all.push({ name, cols: state.cols, rows: state.rows }); localStorage.setItem('multirecorte-templates', JSON.stringify(all)); $('templateName').value = ''; renderSavedTemplates(); logEvent('Plantilla guardada', { nombre: name, columnas: state.cols, filas: state.rows }); showToast('Plantilla guardada en este dispositivo.'); });
+  $('saveTemplate').addEventListener('click', () => { const name = $('templateName').value.trim(); if (!name) { showToast('Escribe un nombre para la plantilla.'); $('templateName').focus(); return; } const all = persistTemplates(); if (all.length >= 12) { showToast('Puedes guardar hasta 12 plantillas.'); return; } all.push({ name, cols: state.cols, rows: state.rows, xCuts: [...state.xCuts], yCuts: [...state.yCuts] }); localStorage.setItem('multirecorte-templates', JSON.stringify(all)); $('templateName').value = ''; renderSavedTemplates(); logEvent('Plantilla guardada', { nombre: name, columnas: state.cols, filas: state.rows }); showToast('Plantilla guardada en este dispositivo.'); });
   $('selectAll').addEventListener('click', () => { state.selected = state.selected.size === state.cols * state.rows ? new Set() : new Set(Array.from({ length: state.cols * state.rows }, (_, i) => i)); logEvent('Selección modificada', { seleccionadas: state.selected.size }); updateSelectionUI(); });
-  canvas.addEventListener('click', e => { if (!state.image) return; const rect = canvas.getBoundingClientRect(), x = (e.clientX - rect.left) / rect.width, y = (e.clientY - rect.top) / rect.height; const col = Math.min(state.cols - 1, Math.max(0, Math.floor(x * state.cols))), row = Math.min(state.rows - 1, Math.max(0, Math.floor(y * state.rows))), index = row * state.cols + col; if (state.selected.has(index)) state.selected.delete(index); else state.selected.add(index); logEvent('Pieza seleccionada', { fila: row + 1, columna: col + 1, incluida: state.selected.has(index), seleccionadas: state.selected.size }); updateSelectionUI(); });
+  function canvasPoint(event) {
+    const rect = canvas.getBoundingClientRect();
+    return { x: Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)), y: Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)), rect };
+  }
+  canvas.addEventListener('pointerdown', e => {
+    if (!state.image || !state.manualEdit) return;
+    const point = canvasPoint(e), threshold = 15;
+    let nearest = null;
+    for (let i = 1; i < state.xCuts.length - 1; i++) { const distance = Math.abs(point.x - state.xCuts[i]) * point.rect.width; if (distance <= threshold && (!nearest || distance < nearest.distance)) nearest = { axis: 'x', index: i, distance }; }
+    for (let i = 1; i < state.yCuts.length - 1; i++) { const distance = Math.abs(point.y - state.yCuts[i]) * point.rect.height; if (distance <= threshold && (!nearest || distance < nearest.distance)) nearest = { axis: 'y', index: i, distance }; }
+    if (!nearest) return;
+    state.dragGuide = { ...nearest, pointerId: e.pointerId };
+    state.suppressNextClick = true; clearTimeout(state.suppressClickTimer);
+    if (canvas.setPointerCapture) canvas.setPointerCapture(e.pointerId);
+    e.preventDefault(); logEvent('Ajuste manual de divisor iniciado', { direccion: nearest.axis === 'x' ? 'vertical' : 'horizontal', divisor: nearest.index });
+  });
+  canvas.addEventListener('pointermove', e => {
+    const drag = state.dragGuide; if (!drag || drag.pointerId !== e.pointerId) return;
+    const point = canvasPoint(e), cuts = drag.axis === 'x' ? state.xCuts : state.yCuts;
+    const pos = drag.axis === 'x' ? point.x : point.y;
+    const min = MIN_CELL_FRACTION;
+    cuts[drag.index] = Math.max(cuts[drag.index - 1] + min, Math.min(cuts[drag.index + 1] - min, pos));
+    drawPreview();
+  });
+  function endGuideDrag(e) {
+    const drag = state.dragGuide; if (!drag || (e && drag.pointerId !== e.pointerId)) return;
+    const cuts = drag.axis === 'x' ? state.xCuts : state.yCuts;
+    state.dragGuide = null;
+    logEvent('Divisor ajustado manualmente', { direccion: drag.axis === 'x' ? 'vertical' : 'horizontal', divisor: drag.index, posicion: Number(cuts[drag.index].toFixed(4)) });
+    updateSelectionUI();
+    state.suppressClickTimer = setTimeout(() => { state.suppressNextClick = false; }, 450);
+  }
+  canvas.addEventListener('pointerup', endGuideDrag);
+  canvas.addEventListener('pointercancel', endGuideDrag);
+  function locateCell(cuts, position) { for (let i = 0; i < cuts.length - 1; i++) if (position < cuts[i + 1] || i === cuts.length - 2) return i; return 0; }
+  canvas.addEventListener('click', e => {
+    if (!state.image) return;
+    if (state.suppressNextClick) { state.suppressNextClick = false; clearTimeout(state.suppressClickTimer); e.preventDefault(); return; }
+    const point = canvasPoint(e), col = locateCell(state.xCuts, point.x), row = locateCell(state.yCuts, point.y), index = row * state.cols + col;
+    if (state.selected.has(index)) state.selected.delete(index); else state.selected.add(index);
+    logEvent('Pieza seleccionada', { fila: row + 1, columna: col + 1, incluida: state.selected.has(index), seleccionadas: state.selected.size }); updateSelectionUI();
+  });
   $('exportBtn').addEventListener('click', exportPieces);
+  $('manualGridBtn').addEventListener('click', () => { if (!state.image) return; state.manualEdit = !state.manualEdit; state.dragGuide = null; updateSelectionUI(); logEvent(state.manualEdit ? 'Edición manual de líneas activada' : 'Edición manual de líneas desactivada'); showToast(state.manualEdit ? 'Arrastra los divisores de la foto para ajustar los recortes.' : 'Ajuste manual finalizado.'); });
+  $('equalGridBtn').addEventListener('click', resetCuts);
   $('undoSelection').addEventListener('click', () => { if (!state.image) { showToast('Primero añade una fotografía.'); return; } state.selected = new Set(Array.from({ length: state.cols * state.rows }, (_, i) => i)); logEvent('Selección restablecida'); updateSelectionUI(); });
   $('zoomBtn').addEventListener('click', () => { $('canvasStage').scrollIntoView({ behavior: 'smooth', block: 'center' }); showToast('Vista ajustada a la imagen.'); });
   $('saveLogBtn').addEventListener('click', saveLog); $('printLogBtn').addEventListener('click', printLog);
@@ -179,6 +256,6 @@
   $('installBtn').addEventListener('click', async () => { if (!state.installPrompt) return; state.installPrompt.prompt(); await state.installPrompt.userChoice; state.installPrompt = null; $('installBtn').hidden = true; });
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('./sw.js').catch(err => logEvent('Service worker no disponible', { error: String(err) }));
   try { const old = JSON.parse(localStorage.getItem('multirecorte-last-log') || '[]'); if (Array.isArray(old)) state.log = old; } catch (_) {}
-  logEvent('Aplicación iniciada', { version: '1.0.0', plataforma: getAndroidBridge() ? 'Android APK' : 'Web', idioma: navigator.language });
+  logEvent('Aplicación iniciada', { version: '1.0.1', plataforma: getAndroidBridge() ? 'Android APK' : 'Web', idioma: navigator.language });
   renderSavedTemplates(); updateSelectionUI();
 })();
