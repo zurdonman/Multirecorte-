@@ -34,7 +34,7 @@ gradle --no-daemon :app:assembleDebug
 
 El APK de depuración se genera en `android/app/build/outputs/apk/debug/app-debug.apk`. La tarea Gradle sincroniza automáticamente `index.html`, estilos y lógica web dentro de los assets antes de compilar. Instálalo con Android Studio o `adb install -r app/build/outputs/apk/debug/app-debug.apk`.
 
-El APK **v1.0.1** incluye los divisores manuales y se publicará en la sección [Releases](https://github.com/zurdonman/Multirecorte-/releases/tag/v1.0.1) del repositorio como `app-debug.apk`.
+El APK **v1.0.1**, con divisores manuales, ya está publicado en la sección [Releases](https://github.com/zurdonman/Multirecorte-/releases/tag/v1.0.1) del repositorio como `app-debug.apk`.
 
 El flujo de GitHub Actions (`Construir APK Android`) compila otra APK en cada push a esta rama y la deja como artefacto temporal en **Actions → ejecución del flujo → Artifacts** (`Multirecorte-debug-APK`, 30 días). Para publicar una versión nueva en **Releases**, ejecútalo manualmente desde **Actions → Construir APK Android → Run workflow**, activa `publish_release` e indica una nueva etiqueta, por ejemplo `v1.0.1`. Las APK son de depuración y no están firmadas para publicar en Play Store.
 
